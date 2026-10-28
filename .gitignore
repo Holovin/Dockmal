@@ -1,0 +1,15 @@
+.build/
+build/
+*.app/
+*.dSYM/
+.DS_Store
+*.p12
+*.pfx
+*.pem
+*.key
+*.cer
+*.cert
+*.mobileprovision
+*.provisionprofile
+.env
+.env.*
