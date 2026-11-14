@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 mkdir -p .build/ModuleCache
-app_path="${APP_OUTPUT_PATH:-$PWD/build/Dock Double Click.app}"
+app_path="${APP_OUTPUT_PATH:-$PWD/build/Dockmal.app}"
 app_path="${app_path%/}"
 app_name="$(basename "$app_path")"
 if [[ "$app_name" != *.app ]]; then
@@ -73,7 +73,7 @@ xcrun swiftc -swift-version 5 -warnings-as-errors -module-cache-path "$PWD/.buil
 xcrun swiftc -swift-version 5 -O -warnings-as-errors \
     -target arm64-apple-macosx13.0 -module-cache-path "$PWD/.build/ModuleCache" \
     -framework AppKit -framework ApplicationServices -framework ServiceManagement -framework QuartzCore \
-    "${native_sources[@]}" Sources/main.swift -o "$staged_app/Contents/MacOS/DockDoubleClick"
+    "${native_sources[@]}" Sources/main.swift -o "$staged_app/Contents/MacOS/Dockmal"
 cp Info.plist "$staged_app/Contents/Info.plist"
 plutil -lint "$staged_app/Contents/Info.plist"
 

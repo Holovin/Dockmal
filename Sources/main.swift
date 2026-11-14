@@ -6,7 +6,7 @@ private let appVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShort
 
 // Safe executable smoke check: no app instance, event tap, permission prompt or writes.
 if CommandLine.arguments.contains("--check") {
-    print("Dock Double Click \(appVersion)")
+    print("Dockmal \(appVersion)")
     print("Accessibility: \(AXIsProcessTrusted() ? "granted" : "not granted")")
     print("Diagnostics only; event interception is not running.")
     exit(0)
@@ -142,13 +142,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusReady = ready
         let isNormalState = ready || !filterEnabled
         let symbol = isNormalState ? "2.brakesignal" : "exclamationmark.circle"
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Dock Double Click")
+        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Dockmal")
             ?? (isNormalState
-                ? NSImage(systemSymbolName: "computermouse", accessibilityDescription: "Dock Double Click")
+                ? NSImage(systemSymbolName: "computermouse", accessibilityDescription: "Dockmal")
                 : nil)
         image?.isTemplate = true
         statusItem.button?.image = image
-        statusItem.button?.toolTip = "Dock Double Click — \(message)"
+        statusItem.button?.toolTip = "Dockmal — \(message)"
         rebuildMenu()
     }
 

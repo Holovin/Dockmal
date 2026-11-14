@@ -1,4 +1,4 @@
-# Dock Double Click development
+# dockmal
 
 - Native code is in `Sources/`; regression tests are in `Tests/`.
 - `Hammerspoon/` contains an alternative filter. Never run both filters together.

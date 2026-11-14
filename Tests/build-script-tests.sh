@@ -19,7 +19,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 [[ -n "$output" ]] || exit 90
-if [[ "${FAKE_BUILD_FAILURE:-}" == compile && "$output" == */Contents/MacOS/DockDoubleClick ]]; then
+if [[ "${FAKE_BUILD_FAILURE:-}" == compile && "$output" == */Contents/MacOS/Dockmal ]]; then
     exit 71
 fi
 mkdir -p "$(dirname "$output")"
@@ -37,7 +37,7 @@ set -euo pipefail
 bundle="${!#}"
 if [[ "$1" == --verify ]]; then
     [[ "${FAKE_BUILD_FAILURE:-}" != verify ]] || exit 73
-    [[ -x "$bundle/Contents/MacOS/DockDoubleClick" ]]
+    [[ -x "$bundle/Contents/MacOS/Dockmal" ]]
     [[ "$(cat "$bundle/Contents/_CodeSignature/CodeResources")" == fresh-signature ]]
 else
     [[ "${FAKE_BUILD_FAILURE:-}" != sign ]] || exit 72
@@ -75,7 +75,7 @@ run_build() {
 }
 seed_old_bundle() {
     mkdir -p "$output/Contents/MacOS" "$output/Contents/_CodeSignature"
-    printf '%s\n' old-executable > "$output/Contents/MacOS/DockDoubleClick"
+    printf '%s\n' old-executable > "$output/Contents/MacOS/Dockmal"
     printf '%s\n' old-resource > "$output/old-only-resource"
     printf '%s\n' stale-signature > "$output/Contents/_CodeSignature/stale-marker"
     cp -R "$output" "$case_dir/expected-old.app"
@@ -95,7 +95,7 @@ pass() {
 new_case successful_rebuild_of_previous_app
 seed_old_bundle
 if ! run_build; then fail 'build should succeed'; fi
-check 'new executable must replace old executable' test -x "$output/Contents/MacOS/DockDoubleClick"
+check 'new executable must replace old executable' test -x "$output/Contents/MacOS/Dockmal"
 check 'old resources must not survive' test ! -e "$output/old-only-resource"
 check 'old signature contents must not survive' test ! -e "$output/Contents/_CodeSignature/stale-marker"
 check 'fresh signature must be published' test "$(cat "$output/Contents/_CodeSignature/CodeResources")" = fresh-signature

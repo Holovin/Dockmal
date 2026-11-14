@@ -71,7 +71,7 @@ final class EventFilter {
 
     func start() {
         let thread = Thread { [self] in run() }
-        thread.name = "DockDoubleClick.events"
+        thread.name = "Dockmal.events"
         thread.start()
     }
 
@@ -178,7 +178,7 @@ final class EventFilter {
             timeoutCount = now - lastTimeout > 10 ? 1 : timeoutCount + 1
             lastTimeout = now
             if type == .tapDisabledByTimeout, timeoutCount < 3, AXIsProcessTrusted(), let tap {
-                os_log("DockDoubleClick: event tap timed out; resetting gesture and reenabling")
+                os_log("Dockmal: event tap timed out; resetting gesture and reenabling")
                 CGEvent.tapEnable(tap: tap, enable: true)
             } else {
                 emit(.failed("Click filtering paused. Choose Retry."))

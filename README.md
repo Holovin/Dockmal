@@ -1,7 +1,7 @@
-# Dock Double Click
+# Dockmal
 
 A small macOS menu bar utility that requires a double-click to launch an app from the Dock.
-Native app version: **0.0.7**. Requires macOS 13 or later on Apple Silicon.
+Native app version: **0.0.8**. Requires macOS 13 or later on Apple Silicon.
 
 Two alternatives are included: the native Swift app and a [Hammerspoon script](Hammerspoon/README.md) (version **0.2.1**). Run only one filter at a time.
 
@@ -34,7 +34,7 @@ Install Xcode Command Line Tools with a Swift compiler that supports macOS 13 AP
 
 ```sh
 bash build.sh
-open 'build/Dock Double Click.app'
+open 'build/Dockmal.app'
 ```
 
 The build runs the native checks, assembles a fresh bundle, applies an ad-hoc signature without a certificate, and verifies it before replacing an existing output. A failed build leaves the previous output available.
@@ -48,7 +48,7 @@ SIGNING_IDENTITY='your signing identity' bash build.sh
 To choose a different output location:
 
 ```sh
-APP_OUTPUT_PATH="$PWD/build-test/Dock Double Click.app" bash build.sh
+APP_OUTPUT_PATH="$PWD/build-test/Dockmal.app" bash build.sh
 ```
 
 Grant Accessibility access in **System Settings → Privacy & Security → Accessibility**. If permission is unavailable, the app shows a warning instead of filtering input. The menu provides a shortcut to these settings.
@@ -62,8 +62,8 @@ Keep an autostart-enabled app in a stable location. Signing is not notarization;
 A built executable can also report its version and permission state without starting filtering:
 
 ```sh
-'build/Dock Double Click.app/Contents/MacOS/DockDoubleClick' --check
-codesign --verify --deep --strict 'build/Dock Double Click.app'
+'build/Dockmal.app/Contents/MacOS/Dockmal' --check
+codesign --verify --deep --strict 'build/Dockmal.app'
 ```
 
 Packaging regression checks use fake tools and temporary fixtures:

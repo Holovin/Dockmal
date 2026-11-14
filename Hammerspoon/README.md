@@ -1,73 +1,73 @@
-# Dock Double Click для Hammerspoon
+# Dock Double Click for Hammerspoon
 
-[dock_double_click.lua](dock_double_click.lua) — самостоятельная альтернатива
-нативной app. Версия 0.2.1, ориентирована на Hammerspoon 1.1.x / Lua 5.4.
+[dock_double_click.lua](dock_double_click.lua) is a standalone alternative to the
+native app. Version 0.2.1 targets Hammerspoon 1.1.x / Lua 5.4.
 
-## Установка вручную
+## Manual installation
 
-1. Завершите отдельную Dock Double Click app через **Quit**. Не включайте два
-   фильтра одновременно.
-2. Сохраните резервную копию своего существующего скрипта, если он есть, затем
-   скопируйте `dock_double_click.lua` в `~/.hammerspoon/`.
-3. В `~/.hammerspoon/init.lua` добавьте строку ниже, если её ещё нет:
+1. Quit the standalone Dockmal app using **Quit**. Do not enable both filters
+   at the same time.
+2. Back up your existing script, if any, then copy `dock_double_click.lua` to
+   `~/.hammerspoon/`.
+3. Add the following line to `~/.hammerspoon/init.lua` if it is not already present:
 
    ```lua
    dofile(hs.configdir .. "/dock_double_click.lua")
    ```
 
-4. Выберите **Reload Config** в Hammerspoon и разрешите Accessibility, если нужно.
-   При отказе выдайте разрешение в системных настройках и выберите **Retry** в `D²`.
+4. Choose **Reload Config** in Hammerspoon and grant Accessibility access if needed.
+   If access is denied, grant it in System Settings and choose **Retry** in `D²`.
 
-Репозиторий сам не устанавливает и не перезагружает Hammerspoon.
+The repository does not install or reload Hammerspoon automatically.
 
-## Меню D²
+## D² menu
 
-| Пункт | Действие |
+| Item | Action |
 | --- | --- |
-| Enabled | Включает фильтрацию. При выключении следующий пункт становится серым. |
-| Only for apps not running | Двойной клик только для незапущенных приложений; запущенные активируются одним. |
-| Unload script | Выгружает только этот скрипт и его меню, оставляя Hammerspoon и другие автоматизации. |
+| Enabled | Turn filtering on or off. When off, the next item is disabled. |
+| Only for apps not running | Require a double-click only for apps that are not running; running apps activate with one click. |
+| Unload script | Unload this script and its menu, leaving Hammerspoon and other automations running. |
 
-Оба флажка по умолчанию включены. Если второй выключен, двойной клик требуется
-для всех application icons. Настройки сохраняются в `hs.settings` между Reload
-Config и перезапусками; настройки нативной app с ними не синхронизируются.
+Both settings default to enabled. If the second is off, all application icons
+require a double-click. Settings persist in `hs.settings` across Reload Config
+and restarts; they are not synchronized with the native app's settings.
 
-После Unload script повторный `dofile` или Reload Config восстановит модуль с
-сохранёнными флажками. Чтобы сохранить отключённое состояние, снимите **Enabled**.
+After Unload script, calling `dofile` again or using Reload Config restores the
+module with its saved settings. To keep filtering disabled, uncheck **Enabled**.
 
-## Поведение
+## Behavior
 
-Первый обычный левый down/up поглощается; второй клик по той же иконке в системном
-интервале передаётся Dock как обычный одиночный. Допустимое движение — 6 логических
-точек. Долгое удержание не подготавливает двойной клик. При начале перетаскивания
-скрипт возвращает сохранённый down и drag в поток событий.
+The first ordinary left-button down/up pair is swallowed. A second click on the
+same icon within the system interval reaches the Dock as an ordinary single click.
+Movement is limited to six logical points. A long hold does not arm a double-click.
+When a drag begins, the script replays the saved down and drag into the event stream.
 
-Правый клик, модификаторы, папки, Trash и свёрнутые окна проходят как обычно.
-Состояние запущенности читается из `AXIsApplicationRunning`; если оно неизвестно,
-в режиме Only for apps not running клик пропускается. При исключении фильтр
-останавливается, меню предлагает Retry. Настройки Dock не меняются.
+Right-clicks, modified clicks, folders, Trash, and minimized windows pass through
+normally. Running state comes from `AXIsApplicationRunning`; an unknown state
+passes the click through in Only for apps not running mode. An exception stops
+the filter and offers Retry in the menu. Dock preferences are not changed.
 
-Перед AX-проверкой скрипт читает глобальный порядок окон через `hs.window.list(true)`.
-Клик фильтруется только если верхнее видимое окно в этой точке принадлежит Dock.
-Перекрывающее чужое окно или неизвестный владелец/геометрия пропускают клик;
-глобальный AX-таймаут Hammerspoon не меняется.
+Before the AX lookup, the script reads global window order using `hs.window.list(true)`.
+A click is filtered only if the topmost visible window at that point belongs to
+the Dock. An overlapping foreign window or unknown owner/geometry passes the click
+through. Hammerspoon's global AX timeout is not changed.
 
-Повторный `start()` / `setEnabled(true)` не перезапускает работающий фильтр и
-сохраняет уже захваченную пару down/up. Выключение отменяет ожидающий двойной клик;
-включение до отпускания кнопки сохраняет обработку этой отменённой пары.
+Repeated `start()` / `setEnabled(true)` calls do not restart a running filter and
+preserve any captured down/up pair. Disabling cancels the pending double-click;
+re-enabling before release preserves handling of that cancelled pair.
 
-## Console и необязательная клавиша
+## Console and optional hotkey
 
 ```lua
 dockDoubleClick.status()
 dockDoubleClick.setEnabled(false)
 dockDoubleClick.setEnabled(true)
 dockDoubleClick.setOnlyStoppedApps(true)
-dockDoubleClick.inspect() -- через 3 секунды напечатает AX-атрибуты под указателем
+dockDoubleClick.inspect() -- prints AX attributes under the pointer after three seconds
 ```
 
-Глобальный хоткей автоматически не назначается. При необходимости можно явно
-назначить свободную комбинацию после строки `dofile`, например:
+No global hotkey is assigned automatically. If needed, explicitly bind an unused
+combination after the `dofile` line, for example:
 
 ```lua
 dockDoubleClick.hotkey = hs.hotkey.bind(
@@ -75,18 +75,18 @@ dockDoubleClick.hotkey = hs.hotkey.bind(
 )
 ```
 
-Повторная загрузка и Unload script удалят этот hotkey. Выберите комбинацию,
-которую не используют другие скрипты.
+Reloading or choosing Unload script removes this hotkey. Choose a combination
+that other scripts do not use.
 
-## Проверка без запуска Hammerspoon
+## Testing without starting Hammerspoon
 
-Из корня репозитория, при установленном standalone Lua:
+From the repository root, with standalone Lua installed:
 
 ```sh
 lua Hammerspoon/tests/test_dock_double_click.lua
 ```
 
-Harness полностью имитирует `hs`, не перехватывает ввод и не меняет реальные
-настройки. На host Lua 5.5.1 прошли 339 утверждений в 29 сценариях. Реальный
-embedded Lua 5.4, AX hit-test, z-order, drag, auto-hide, несколько дисплеев и
-восстановление event tap требуют отдельной проверки на Mac.
+The harness fully mocks `hs`; it does not intercept input or change real settings.
+It passed 339 assertions in 29 scenarios on host Lua 5.5.1. The actual embedded
+Lua 5.4 runtime, AX hit testing, window order, dragging, auto-hide, multiple displays,
+and event-tap recovery require separate testing on a Mac.

@@ -26,7 +26,7 @@ final class DockHighlight {
     private let duration: TimeInterval = 0.56
     private let padding: CGFloat = 4
     private let dockPreferences = UserDefaults(suiteName: "com.apple.dock")
-    private let iconQueue = DispatchQueue(label: "DockDoubleClick.icon-mask", qos: .userInitiated)
+    private let iconQueue = DispatchQueue(label: "Dockmal.icon-mask", qos: .userInitiated)
     private var iconCache: [String: CGImage] = [:]
     private var iconCacheOrder: [String] = []
     private let iconCacheLimit = 32

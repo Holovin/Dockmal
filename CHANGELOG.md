@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.8
+
+- Rename the native app, executable, and visible interface strings to Dockmal.
+- Retain the bundle identifier and preference keys to preserve app identity and settings.
+
 ## 0.0.7
 
 - Recheck event-filter configuration after Accessibility lookup so a stop or mode change cannot apply a stale click decision.
