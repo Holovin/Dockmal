@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.9
+
+- Change the native bundle identifier to `com.holovin-local.dockmal`.
+
 ## 0.0.8
 
 - Rename the native app, executable, and visible interface strings to Dockmal.

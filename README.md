@@ -1,7 +1,7 @@
 # Dockmal
 
 A small macOS menu bar utility that requires a double-click to launch an app from the Dock.
-Native app version: **0.0.8**. Requires macOS 13 or later on Apple Silicon.
+Native app version: **0.0.9**. Requires macOS 13 or later on Apple Silicon.
 
 Two alternatives are included: the native Swift app and a [Hammerspoon script](Hammerspoon/README.md) (version **0.2.1**). Run only one filter at a time.
 

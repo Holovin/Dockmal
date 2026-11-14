@@ -3,12 +3,12 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key><string>Dockmal</string>
-    <key>CFBundleIdentifier</key><string>local.DockDoubleClick</string>
+    <key>CFBundleIdentifier</key><string>com.holovin-local.dockmal</string>
     <key>CFBundleName</key><string>Dockmal</string>
     <key>CFBundleDisplayName</key><string>Dockmal</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>0.0.8</string>
-    <key>CFBundleVersion</key><string>8</string>
+    <key>CFBundleShortVersionString</key><string>0.0.9</string>
+    <key>CFBundleVersion</key><string>9</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
