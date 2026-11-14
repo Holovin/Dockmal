@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.10
+
+- Reject clicks outside current Dock window bounds before synchronous Accessibility hit testing.
+- Avoid idle feedback dispatches while still cancelling pending icon loads and queued highlights.
+- Drain intercepted mouse presses before stopping the tap; preserve suppression across Dock changes and recoverable tap timeouts.
+- Publish bundles using a kernel-managed lock and an atomic directory swap so killed publishers cannot strand a lock or leave the output missing.
+- Correct the standalone app name in Hammerspoon instructions and remove duplicated version numbers from the native README.
+
 ## 0.0.9
 
 - Change the native bundle identifier to `com.holovin-local.dockmal`.

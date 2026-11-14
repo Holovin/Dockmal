@@ -81,6 +81,32 @@ struct OverlayHitPolicyTests {
         expect(allows([overlay, dock], dockPID: 0), false, "invalid Dock PID fails closed")
         expect(allows([overlay, dock], dockPID: 100), false, "Dock and app identities must differ")
 
+        expect(OverlayHitPolicy.mayHitDock(at: point, dockPID: 200, windows: [dock]), true,
+               "Dock point reaches AX")
+        expect(OverlayHitPolicy.mayHitDock(at: CGPoint(x: 700, y: 700), dockPID: 200,
+                                          windows: [foreign, dock]), false,
+               "ordinary application point outside Dock avoids AX")
+        expect(OverlayHitPolicy.mayHitDock(at: point, dockPID: 200, windows: [foreign, dock]), true,
+               "prefilter cannot replace the authoritative AX occlusion check")
+        expect(OverlayHitPolicy.mayHitDock(at: point, dockPID: 200, windows: nil), true,
+               "unavailable WindowServer metadata falls back to AX")
+        expect(OverlayHitPolicy.mayHitDock(at: point, dockPID: 200, windows: []), true,
+               "empty snapshot is not proof that Dock cannot be hit")
+        expect(OverlayHitPolicy.mayHitDock(at: point, dockPID: 200,
+                                          windows: [window(owner: 200, frame: nil)]), true,
+               "unknown Dock bounds cannot reject a point")
+        expect(OverlayHitPolicy.mayHitDock(at: point, dockPID: 200,
+                                          windows: [window(owner: nil)]), true,
+               "unknown owner cannot exclude Dock")
+        expect(OverlayHitPolicy.mayHitDock(at: CGPoint(x: 450, y: 230), dockPID: 200,
+                                          windows: [dock]), true, "exact Dock edges are included")
+        let moved = window(21, owner: 200, frame: CGRect(x: -1000, y: -100, width: 100, height: 700))
+        expect(OverlayHitPolicy.mayHitDock(at: CGPoint(x: -950, y: 0), dockPID: 200,
+                                          windows: [dock, moved]), true,
+               "multiple Dock windows and negative screen coordinates are supported")
+        expect(OverlayHitPolicy.mayHitDock(at: point, dockPID: 200, windows: [moved]), false,
+               "fresh bounds follow Dock relocation without stale cached regions")
+
         print("Passed \(assertions) overlay policy assertions.")
     }
 

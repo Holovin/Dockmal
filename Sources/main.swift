@@ -123,7 +123,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let self, self.generation == currentGeneration else { return }
             switch status {
             case .active:
-                self.showStatus(self.activeStatusMessage, ready: true)
+                if self.filterEnabled && !self.suspended {
+                    self.showStatus(self.activeStatusMessage, ready: true)
+                }
+            case .stopped:
+                self.filter = nil
+                self.mayStart = true
+                self.refresh()
             case .failed(let message):
                 self.highlight.hide()
                 self.filter = nil
@@ -292,10 +298,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func stopFilter() {
-        generation = UUID()
         highlight.hide()
         filter?.stop()
-        filter = nil
+        // Keep the old tap until its intercepted press is released. A quick
+        // disable/enable must not install a second tap above the draining one.
     }
 
     @objc private func quit() { NSApp.terminate(nil) }

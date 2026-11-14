@@ -18,38 +18,25 @@ if [[ -L "$app_path" || ( -e "$app_path" && ! -d "$app_path" ) ]]; then
     exit 1
 fi
 
-# Separate parents prevent an output name from colliding with the backup.
-# Per-build test binaries also allow independent builds to run concurrently.
-staging_dir="$(mktemp -d "$output_parent/.dock-double-click.XXXXXX")"
+# Keep staging on the output filesystem for atomic rename/swap.
+staging_dir="$(mktemp -d "$output_parent/.dockmal.XXXXXX")"
 staged_app="$staging_dir/new/$app_name"
-backup_app="$staging_dir/old/$app_name"
 test_dir="$staging_dir/tests"
-publish_lock="$app_path.build-lock"
-publish_locked=false
 cleanup() {
     local result=$?
-    local retain_backup=false
     trap - EXIT
     trap '' INT TERM
-    if [[ -d "$backup_app" && "$result" -ne 0 ]]; then
-        if [[ ! -e "$app_path" && ! -L "$app_path" ]]; then
-            if ! mv "$backup_app" "$app_path"; then retain_backup=true; fi
-        else
-            retain_backup=true
-        fi
-    fi
-    if [[ "$retain_backup" == true ]]; then
-        printf 'Previous app retained for recovery at %s\n' "$backup_app" >&2
-    else
-        rm -rf "$staging_dir"
-    fi
-    if [[ "$publish_locked" == true ]]; then rmdir "$publish_lock"; fi
+    rm -rf "$staging_dir"
     exit "$result"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
-mkdir -p "$staged_app/Contents/MacOS" "$staging_dir/old" "$test_dir"
+mkdir -p "$staged_app/Contents/MacOS" "$test_dir"
+
+xcrun clang -Wall -Wextra -Werror Tools/publish.c -o "$test_dir/publish"
+# Detect a busy or legacy lock before compiling the app; replacement locks again.
+"$test_dir/publish" check "$app_path"
 
 xcrun swiftc -swift-version 5 -warnings-as-errors -module-cache-path "$PWD/.build/ModuleCache" \
     Sources/ClickGate.swift Tests/main.swift -o "$test_dir/click-gate-tests"
@@ -81,17 +68,7 @@ plutil -lint "$staged_app/Contents/Info.plist"
 codesign --force --sign "${SIGNING_IDENTITY:--}" --options runtime --timestamp=none "$staged_app"
 codesign --verify --deep --strict --verbose=2 "$staged_app"
 
-# Only publication is serialized. Never replace another build's output or lock.
-if ! mkdir "$publish_lock" 2>/dev/null; then
-    printf 'Could not acquire output lock: %s\n' "$publish_lock" >&2
-    exit 1
-fi
-publish_locked=true
-if [[ -L "$app_path" || ( -e "$app_path" && ! -d "$app_path" ) ]]; then
-    printf '%s\n' 'Output changed during the build; refusing to replace it.' >&2
-    exit 1
-fi
-if [[ -e "$app_path" ]]; then mv "$app_path" "$backup_app"; fi
-# Using the parent prevents a competing destination from nesting our new bundle.
-mv "$staged_app" "$output_parent/"
+# A successful swap leaves the old app at staged_app for cleanup. If killed
+# before or after the swap, output still names a complete signed bundle.
+"$test_dir/publish" replace "$staged_app" "$app_path"
 printf '%s\n' "$app_path"

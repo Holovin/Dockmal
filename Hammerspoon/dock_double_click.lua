@@ -2,7 +2,7 @@
 --
 -- Copy this file to ~/.hammerspoon/dock_double_click.lua and load it once:
 --   dofile(hs.configdir .. "/dock_double_click.lua")
--- Quit the standalone Dock Double Click app before enabling this alternative.
+-- Quit the standalone Dockmal app before enabling this alternative.
 --
 -- Menu (D²): Enabled / Only for apps not running / Unload script.
 -- Both checkboxes default to true. Choices persist in hs.settings.

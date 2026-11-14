@@ -1,14 +1,26 @@
 #!/bin/bash
-# Packaging regressions only: no compiler, real signing, app launch, or input hooks.
+# Packaging regressions: real filesystem publisher, mocked Swift app and signing.
 set -euo pipefail
 shopt -s nullglob
 repo_root="$(cd "$(dirname "$0")/.." && pwd -P)"
-test_root="$(mktemp -d "${TMPDIR:-/tmp}/dock-double-click-build-tests.XXXXXX")"
-trap 'rm -rf "$test_root"' EXIT
+test_root="$(mktemp -d "${TMPDIR:-/tmp}/dockmal-build-tests.XXXXXX")"
+publisher_pid=
+build_pid=
+cleanup() {
+    if [[ -n "$publisher_pid" ]]; then kill -KILL "$publisher_pid" 2>/dev/null || true; fi
+    if [[ -n "$build_pid" ]]; then
+        kill -TERM "$build_pid" 2>/dev/null || true
+        wait "$build_pid" 2>/dev/null || true
+    fi
+    rm -rf "$test_root"
+}
+trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 fake_bin="$test_root/bin"
 mkdir -p "$fake_bin"
+xcrun clang -Wall -Wextra -Werror -DDOCKMAL_PUBLICATION_TESTING \
+    "$repo_root/Tools/publish.c" -o "$test_root/publish"
 
 cat > "$fake_bin/xcrun" <<'FAKE'
 #!/bin/bash
@@ -19,6 +31,10 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 [[ -n "$output" ]] || exit 90
+if [[ "$output" == */tests/publish ]]; then
+    cp "$PUBLISH_TEST_TOOL" "$output"
+    exit 0
+fi
 if [[ "${FAKE_BUILD_FAILURE:-}" == compile && "$output" == */Contents/MacOS/Dockmal ]]; then
     exit 71
 fi
@@ -71,6 +87,7 @@ check() {
 run_build() {
     env PATH="$fake_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
         APP_OUTPUT_PATH="$output" SIGNING_IDENTITY= FAKE_BUILD_FAILURE="${1:-}" \
+        PUBLISH_TEST_TOOL="$test_root/publish" DOCKMAL_TEST_PAUSE_AT="${pause_at:-}" \
         /bin/bash "$case_dir/build.sh" > "$log" 2>&1
 }
 seed_old_bundle() {
@@ -81,11 +98,12 @@ seed_old_bundle() {
     cp -R "$output" "$case_dir/expected-old.app"
 }
 check_no_staging() {
-    local staging=("$output_parent"/.dock-double-click.*)
+    local staging=("$output_parent"/.dockmal.*)
     check 'staging directories must be cleaned' test "${#staging[@]}" -eq 0
 }
 check_no_lock() {
-    check 'owned publication lock must be released' test ! -e "$output.build-lock"
+    # Persistent files do not mean a held lock. A new process must acquire it.
+    check 'publication lock must be reusable' "$test_root/publish" check "$output"
 }
 pass() {
     cases=$((cases + 1))
@@ -100,6 +118,13 @@ check 'old resources must not survive' test ! -e "$output/old-only-resource"
 check 'old signature contents must not survive' test ! -e "$output/Contents/_CodeSignature/stale-marker"
 check 'fresh signature must be published' test "$(cat "$output/Contents/_CodeSignature/CodeResources")" = fresh-signature
 check 'old bundle must not be nested in the new bundle' test ! -e "$output/previous.app"
+check_no_staging
+check_no_lock
+pass
+
+new_case successful_first_install
+if ! run_build; then fail 'first build should succeed'; fi
+check 'first publication installs a complete bundle' test -x "$output/Contents/MacOS/Dockmal"
 check_no_staging
 check_no_lock
 pass
@@ -143,4 +168,52 @@ check 'another build lock must remain untouched' diff -rq "$case_dir/expected-lo
 check_no_staging
 pass
 
-printf '%s packaging cases passed; real compiler and codesign were not invoked.\n' "$cases"
+new_case lock_symlink_is_rejected
+printf '%s\n' preserve-lock-target > "$case_dir/lock-target"
+ln -s "$case_dir/lock-target" "$output.build-lock"
+if run_build; then fail 'lock symlink should reject publication'; fi
+check 'lock symlink remains intact' test -L "$output.build-lock"
+check 'lock target is unchanged' test "$(cat "$case_dir/lock-target")" = preserve-lock-target
+check_no_staging
+pass
+
+for phase in before after; do
+    new_case "sigkill_${phase}_atomic_publication"
+    seed_old_bundle
+    pause_at="$phase"
+    run_build &
+    build_pid=$!
+    publisher_pid=
+    for ((attempt = 0; attempt < 200; attempt++)); do
+        publisher_pid="$(awk '$1 == "PUBLICATION_PAUSED" {print $2; exit}' "$log" 2>/dev/null || true)"
+        if [[ -n "$publisher_pid" ]]; then break; fi
+        sleep 0.05
+    done
+    if [[ -z "$publisher_pid" ]]; then
+        wait "$build_pid" || true
+        fail 'publisher did not reach the test barrier'
+    fi
+    if "$test_root/publish" check "$output" 2>/dev/null; then
+        kill -KILL "$publisher_pid"
+        wait "$build_pid" || true
+        fail 'concurrent publisher must not acquire a held lock'
+    fi
+    # The output exists even while the publisher is paused on either side of swap.
+    if [[ "$phase" == before ]]; then
+        check 'old bundle stays in place before swap' diff -rq "$case_dir/expected-old.app" "$output"
+    else
+        check 'new bundle is complete immediately after swap' test -x "$output/Contents/MacOS/Dockmal"
+        check 'old resources are absent after swap' test ! -e "$output/old-only-resource"
+    fi
+    kill -KILL "$publisher_pid"
+    if wait "$build_pid"; then fail 'killed publisher must report failure'; fi
+    publisher_pid=
+    build_pid=
+    pause_at=
+    check_no_lock
+    if ! run_build; then fail 'next build must succeed without deleting the lock'; fi
+    check_no_staging
+    pass
+done
+
+printf '%s packaging cases passed; app compiler and codesign were mocked.\n' "$cases"

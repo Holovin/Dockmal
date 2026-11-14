@@ -58,6 +58,20 @@ struct ClickGate {
     private var pending: FirstClick?
     private var press: Press?
 
+    var ownsSuppressedPress: Bool {
+        switch press {
+        case .captured, .suppressingUntilMouseUp: return true
+        case .forwarding, nil: return false
+        }
+    }
+
+    /// End recognition without leaking the remainder of an intercepted press.
+    /// Unlike ordinary cancellation, a process/tap transition must not replay a drag.
+    mutating func cancelForTransition() {
+        pending = nil
+        if ownsSuppressedPress { press = .suppressingUntilMouseUp }
+    }
+
     init(movementTolerance: Double = 6) {
         let tolerance = max(0, movementTolerance)
         movementToleranceSquared = tolerance * tolerance
@@ -152,7 +166,7 @@ struct ClickGate {
         }
     }
 
-    /// Forget all state after a tap reset or a Dock process change.
+    /// Forget all state only when there is no intercepted press to finish.
     mutating func reset() {
         pending = nil
         press = nil

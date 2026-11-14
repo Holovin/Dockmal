@@ -12,6 +12,24 @@ struct OverlayWindowInfo {
 }
 
 enum OverlayHitPolicy {
+    /// A fresh WindowServer snapshot rejects points outside Dock windows before AX
+    /// contacts the application under the pointer. Missing metadata fails open to AX.
+    /// This is only a spatial prefilter; AX still decides ownership and item identity.
+    static func mayHitDock(at point: CGPoint, dockPID: Int32,
+                           windows: [OverlayWindowInfo]?) -> Bool {
+        guard point.x.isFinite, point.y.isFinite, dockPID > 0,
+              let windows, !windows.isEmpty else { return true }
+        for window in windows {
+            if window.isOnscreen == false { continue }
+            guard let owner = window.ownerPID, owner > 0 else { return true }
+            guard owner == dockPID else { continue }
+            guard let frame = window.frame, validFrame(frame) else { return true }
+            if point.x >= frame.minX && point.x <= frame.maxX &&
+                point.y >= frame.minY && point.y <= frame.maxY { return true }
+        }
+        return false
+    }
+
     static func allowsDockFallback(
         at point: CGPoint,
         overlayWindowNumber: Int,

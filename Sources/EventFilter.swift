@@ -4,6 +4,7 @@ import os.log
 
 enum FilterStatus {
     case active
+    case stopped
     case failed(String)
 }
 
@@ -32,7 +33,9 @@ final class EventFilter {
     private var lastTimeout: TimeInterval = 0
     private let report: (FilterStatus) -> Void
     private let feedback: (ClickFeedback) -> Void
+    private let scheduleFeedback: (@escaping () -> Void) -> Void
     private var feedbackRevision: UInt64 = 0
+    private var feedbackMayBeActive = false
     private var configurationRevision: UInt64 = 0
     private let replayTag: Int64 = 0x44444332
 
@@ -40,6 +43,7 @@ final class EventFilter {
          feedback: @escaping (ClickFeedback) -> Void,
          applicationAt: ((CGPoint, pid_t) -> DockApplication?)? = nil,
          copyEvent: @escaping (CGEvent) -> CGEvent? = { $0.copy() },
+         scheduleFeedback: @escaping (@escaping () -> Void) -> Void = { DispatchQueue.main.async(execute: $0) },
          report: @escaping (FilterStatus) -> Void) {
         if let applicationAt {
             self.hitTester = nil
@@ -51,6 +55,7 @@ final class EventFilter {
         }
         self.copyEvent = copyEvent
         self.feedback = feedback
+        self.scheduleFeedback = scheduleFeedback
         self.report = report
     }
 
@@ -62,7 +67,6 @@ final class EventFilter {
         self.mode = mode
         if changed {
             configurationRevision &+= 1
-            feedbackRevision &+= 1
         }
         let currentConfiguration = configurationRevision
         lock.unlock()
@@ -84,7 +88,12 @@ final class EventFilter {
         lock.unlock()
         if let loop {
             CFRunLoopPerformBlock(loop, CFRunLoopMode.commonModes.rawValue) {
-                CFRunLoopStop(loop)
+                self.gate.cancelForTransition()
+                self.savedDown = nil
+                // Permission loss or a disabled tap cannot deliver a final up.
+                // Do not retain an unusable tap and prevent a later Retry forever.
+                let canDrain = AXIsProcessTrusted() && self.tap.map { CGEvent.tapIsEnabled(tap: $0) } == true
+                if !self.gate.ownsSuppressedPress || !canDrain { CFRunLoopStop(loop) }
             }
             CFRunLoopWakeUp(loop)
         }
@@ -100,12 +109,19 @@ final class EventFilter {
             lock.unlock()
             return
         }
+        // Includes a queued show and asynchronous icon loading, not just visibility.
+        switch event {
+        case .show: feedbackMayBeActive = true
+        case .hide:
+            guard feedbackMayBeActive else { lock.unlock(); return }
+            feedbackMayBeActive = false
+        }
         feedbackRevision &+= 1
         let revision = feedbackRevision
         let shouldStop = stopping
         lock.unlock()
         guard !shouldStop else { return }
-        DispatchQueue.main.async { [weak self] in
+        scheduleFeedback { [weak self] in
             guard let self else { return }
             self.lock.lock()
             let isCurrent = !self.stopping && self.feedbackRevision == revision
@@ -157,7 +173,9 @@ final class EventFilter {
         emitFeedback(.hide)
         lock.lock()
         workerRunLoop = nil
+        let wasStopped = stopping
         lock.unlock()
+        if wasStopped { emit(.stopped) }
     }
 
     private func handle(proxy: CGEventTapProxy, type: CGEventType,
@@ -171,7 +189,7 @@ final class EventFilter {
                replayEvent: (CGEvent) -> Void) -> Unmanaged<CGEvent>? {
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
             emitFeedback(.hide)
-            gate.reset()
+            gate.cancelForTransition()
             savedDown = nil
             hitTester?.reset()
             let now = ProcessInfo.processInfo.systemUptime
@@ -196,11 +214,20 @@ final class EventFilter {
         let configRevision = configurationRevision
         let shouldStop = stopping
         lock.unlock()
-        if shouldStop { return Unmanaged.passUnretained(event) }
+        if shouldStop {
+            gate.cancelForTransition()
+            savedDown = nil
+            let owned = gate.ownsSuppressedPress
+            if type == .leftMouseUp || type == .leftMouseDown { gate.reset() }
+            if !gate.ownsSuppressedPress, let loop = workerRunLoop { CFRunLoopStop(loop) }
+            // A new down also recovers a press whose up was lost while the tap was disabled.
+            return owned && (type == .leftMouseUp || type == .leftMouseDragged)
+                ? nil : Unmanaged.passUnretained(event)
+        }
         if seenDockPID != configPID {
             emitFeedback(.hide)
             seenDockPID = configPID
-            gate.reset()
+            gate.cancelForTransition()
             savedDown = nil
             hitTester?.reset()
         }

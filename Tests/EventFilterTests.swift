@@ -6,21 +6,31 @@ private final class RoutingFixture {
     var failCopyTypes = Set<CGEventType>()
     var copiedTypes: [CGEventType] = []
     var replayed: [CGEvent] = []
+    var lookupCount = 0
+    var feedbackJobs: [() -> Void] = []
+    var feedbackEvents: [String] = []
+    var frame: CGRect?
 
-    lazy var filter = EventFilter(highlightSnapshot: { nil }, feedback: { _ in },
+    lazy var filter = EventFilter(highlightSnapshot: { nil }, feedback: { [weak self] event in
+        switch event {
+        case .show: self?.feedbackEvents.append("show")
+        case .hide: self?.feedbackEvents.append("hide")
+        }
+    },
         applicationAt: { [weak self] _, _ in
             guard let self else { return nil }
+            self.lookupCount += 1
             // A one-shot hook changes configuration while the synchronous lookup is
             // in flight, after route() has captured its original configuration.
             let hook = self.duringHit
             self.duringHit = nil
             hook?()
-            return DockApplication(id: "app-a", isRunning: false, frame: nil, appURL: nil)
+            return DockApplication(id: "app-a", isRunning: false, frame: self.frame, appURL: nil)
         }, copyEvent: { [weak self] event in
             guard let self else { return nil }
             self.copiedTypes.append(event.type)
             return self.failCopyTypes.contains(event.type) ? nil : event.copy()
-        }, report: { _ in })
+        }, scheduleFeedback: { [weak self] job in self?.feedbackJobs.append(job) }, report: { _ in })
 
     init() {
         filter.configure(dockPID: 100, interval: 0.5, mode: .appsNotRunning)
@@ -65,7 +75,77 @@ struct EventFilterTests {
         if selected == nil || selected == "stale" { testStaleLookup() }
         if selected == nil || selected == "drag" { testDragCopyFailure() }
         if selected == nil || selected == "normal" { testNormalRouting() }
+        if selected == nil || selected == "transitions" { testTransitions() }
+        if selected == nil || selected == "feedback" { testFeedbackTraffic() }
         print("Passed \(assertions) offline event-routing assertions.")
+    }
+
+    private static func testTransitions() {
+        for stopping in [false, true] {
+            let fixture = RoutingFixture()
+            expect(fixture.route(event(.leftMouseDown, at: 1)) == nil, true, "capture before transition")
+            if stopping {
+                fixture.filter.stop()
+            } else {
+                fixture.filter.configure(dockPID: 101, interval: 0.5, mode: .appsNotRunning)
+            }
+            expect(fixture.route(event(.leftMouseDragged, at: 1.1, x: 120)) == nil, true,
+                   "transition swallows drag without replaying a stale down")
+            expect(fixture.route(event(.leftMouseUp, at: 1.2, x: 120)) == nil, true,
+                   "transition retains ownership of the matching up")
+            expect(fixture.replayed.isEmpty, true, "transition never replays input")
+            let extraUp = event(.leftMouseUp, at: 1.3)
+            expect(passedUnchanged(fixture.route(extraUp), extraUp), true, "ownership ends after one up")
+            let down = event(.leftMouseDown, at: 1.4)
+            if stopping {
+                expect(passedUnchanged(fixture.route(down), down), true, "stopped filter passes future downs")
+                expect(fixture.lookupCount, 1, "draining filter performs no further AX lookup")
+            } else {
+                expect(fixture.route(down) == nil, true, "new Dock starts with a fresh first click")
+            }
+        }
+        let fixture = RoutingFixture()
+        expect(fixture.route(event(.leftMouseDown, at: 1)) == nil, true, "capture before missing up")
+        fixture.filter.stop()
+        let down = event(.leftMouseDown, at: 2)
+        expect(passedUnchanged(fixture.route(down), down), true, "new down recovers a lost release")
+        let up = event(.leftMouseUp, at: 2.1)
+        expect(passedUnchanged(fixture.route(up), up), true, "recovery preserves the new native pair")
+
+        // Pure transition used by timeout recovery: retain suppression, disable handoff.
+        var gate = ClickGate()
+        let point = PointerPoint(x: 0, y: 0)
+        expect(gate.mouseDown(targetID: "a", at: point, time: 1, interval: 0.5, bypass: false), .suppress,
+               "timeout fixture captures down")
+        gate.cancelForTransition()
+        expect(gate.mouseDragged(to: PointerPoint(x: 20, y: 0), time: 1.1), .suppress,
+               "timeout recovery cannot hand off a stale drag")
+        expect(gate.mouseUp(at: point, time: 1.2), .suppress, "timeout recovery owns the release")
+        expect(gate.mouseDown(targetID: "a", at: point, time: 1.3, interval: 0.5, bypass: false), .suppress,
+               "timeout recovery never arms a second click")
+    }
+
+    private static func testFeedbackTraffic() {
+        let fixture = RoutingFixture()
+        for i in 0..<100 { _ = fixture.route(event(.scrollWheel, at: Double(i))) }
+        expect(fixture.feedbackJobs.count, 0, "idle scrolling must not enqueue UI work")
+        fixture.frame = CGRect(x: 90, y: 190, width: 68, height: 79)
+        _ = fixture.route(event(.leftMouseDown, at: 101))
+        expect(fixture.feedbackJobs.count, 1, "first captured click queues a show without an idle hide")
+        _ = fixture.route(event(.scrollWheel, at: 101.1))
+        for i in 0..<100 { _ = fixture.route(event(.scrollWheel, at: 102 + Double(i))) }
+        expect(fixture.feedbackJobs.count, 2, "cancel even a pending show once, then coalesce idle hides")
+        for job in fixture.feedbackJobs { job() }
+        expect(fixture.feedbackEvents, ["hide"], "cancelled queued show must never flash")
+        _ = fixture.route(event(.leftMouseUp, at: 203))
+        _ = fixture.route(event(.leftMouseDown, at: 204))
+        fixture.feedbackJobs.last?()
+        expect(fixture.feedbackEvents, ["hide", "show"], "feedback can show after cancellation")
+        fixture.filter.configure(dockPID: 101, interval: 0.5, mode: .appsNotRunning)
+        fixture.filter.configure(dockPID: 102, interval: 0.5, mode: .allApps)
+        fixture.feedbackJobs.last?()
+        expect(fixture.feedbackEvents, ["hide", "show", "hide"],
+               "repeated configuration must not invalidate the only queued hide")
     }
 
     private static func testStaleLookup() {

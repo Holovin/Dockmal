@@ -30,6 +30,9 @@ final class DockHitTester {
     func application(at point: CGPoint, dockPID: pid_t) -> DockApplication? {
         guard dockPID > 0 else { return nil }
         let started = ProcessInfo.processInfo.systemUptime
+        let windows = Self.windowSnapshot()
+        guard OverlayHitPolicy.mayHitDock(at: point, dockPID: dockPID, windows: windows),
+              ProcessInfo.processInfo.systemUptime - started < 0.025 else { return nil }
         var hit: AXUIElement?
         // System-wide hit testing respects the topmost window, including overlays.
         guard AXUIElementCopyElementAtPosition(system, Float(point.x), Float(point.y), &hit) == .success,
@@ -121,6 +124,12 @@ final class DockHitTester {
                                  frame: frame,
                                  alpha: (raw[kCGWindowAlpha as String] as? NSNumber)?.doubleValue,
                                  isOnscreen: (raw[kCGWindowIsOnscreen as String] as? NSNumber)?.boolValue)
+    }
+
+    private static func windowSnapshot() -> [OverlayWindowInfo]? {
+        guard let raw = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                                  kCGNullWindowID) as? [[String: Any]] else { return nil }
+        return raw.map(windowInfo)
     }
 
 }
