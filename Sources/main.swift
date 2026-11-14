@@ -190,6 +190,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(item)
     }
 
+    private func addProductInformation(to menu: NSMenu) {
+        let title = "Dockmal \(appVersion) •"
+        let label = NSTextField(labelWithString: title)
+        label.font = menu.font
+        label.textColor = .disabledControlTextColor
+        label.isEnabled = false
+        label.sizeToFit()
+
+        let link = NSButton(title: "GitHub ↗", target: self, action: #selector(openGitHub))
+        link.isBordered = false
+        link.font = menu.font
+        link.contentTintColor = .linkColor
+        link.toolTip = "Open on GitHub"
+        link.setAccessibilityLabel("GitHub")
+        link.setAccessibilityHelp("Open on GitHub")
+        link.sizeToFit()
+
+        // A normal menu item makes the entire row actionable. Keep the caption
+        // inert and give only the link its own native button and hit target.
+        let inset: CGFloat = 20
+        let spacing: CGFloat = 4
+        let height = max(label.frame.height, link.frame.height) + 6
+        let row = NSView(frame: NSRect(x: 0, y: 0,
+            width: inset * 2 + label.frame.width + spacing + link.frame.width, height: height))
+        row.autoresizingMask = [.width]
+        label.setFrameOrigin(NSPoint(x: inset, y: (height - label.frame.height) / 2))
+        link.setFrameOrigin(NSPoint(x: label.frame.maxX + spacing, y: (height - link.frame.height) / 2))
+        row.addSubview(label)
+        row.addSubview(link)
+
+        let item = NSMenuItem(title: "\(title) GitHub ↗", action: nil, keyEquivalent: "")
+        item.view = row
+        menu.addItem(item)
+    }
+
     private func populateMenu(_ menu: NSMenu) {
         menu.removeAllItems()
         addSettingsItems(to: menu)
@@ -209,7 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         menu.addItem(autostart)
         addInformation("A11y: \(AXIsProcessTrusted() ? "granted" : "not granted")", to: menu)
-        addInformation("Version: \(appVersion)", to: menu)
+        addProductInformation(to: menu)
         if loginStatus == .requiresApproval {
             let approval = NSMenuItem(title: "Open Login Items Settings…", action: #selector(openLoginItems), keyEquivalent: "")
             approval.target = self
@@ -257,6 +292,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func openLoginItems() {
         SMAppService.openSystemSettingsLoginItems()
+    }
+
+    @objc private func openGitHub() {
+        guard let url = URL(string: "https://github.com/Holovin/DockMal") else { return }
+        statusItem.menu?.cancelTracking()
+        NSWorkspace.shared.open(url)
     }
 
     @objc private func toggleEnabled() {

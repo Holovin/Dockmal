@@ -34,8 +34,11 @@ Two alternatives are available: a standalone macOS app and a
   automatically, and reflects the system state without a separate saved flag.
   If system approval is required, the menu shows a mixed state and
   **Open Login Items Settings…**. Clicking Autostart again cancels registration.
-- The gray **A11y: granted / not granted** and **Version** rows show Accessibility
-  permission and the bundle version. States are refreshed before the menu opens.
+- The gray **A11y: granted / not granted** row shows Accessibility permission.
+  Below it, **Dockmal &lt;version&gt; • GitHub ↗** displays the app name, bundle
+  version, and separator as an inactive gray caption. Only **GitHub ↗** opens
+  the project repository. Its tooltip is **Open on GitHub**. States are refreshed
+  before the menu opens.
 - Enable Autostart from a permanent location for the signed app. Do not move or
   delete the bundle after registration without checking Login Items in System Settings.
 

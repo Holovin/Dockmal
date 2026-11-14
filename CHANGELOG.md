@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.11
+
+- Replace the Version row with a disabled Dockmal/version caption and a separate GitHub link in the same menu row.
+
 ## 0.0.10
 
 - Reject clicks outside current Dock window bounds before synchronous Accessibility hit testing.
