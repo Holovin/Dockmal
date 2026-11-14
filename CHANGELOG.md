@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.12
+
+- Align the GitHub link with the product caption's text baseline and use matching gray text while keeping the link clickable.
+
 ## 0.0.11
 
 - Replace the Version row with a disabled Dockmal/version caption and a separate GitHub link in the same menu row.

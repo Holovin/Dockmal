@@ -5,7 +5,7 @@ Built with Swift, AppKit, CoreGraphics, and Accessibility, with no external depe
 Bundle ID: `com.holovin-local.dockmal`.
 
 Two alternatives are available: a standalone macOS app and a
-[Hammerspoon Lua script](Hammerspoon/README.md). Enable only one at a time.
+[Hammerspoon Lua script](dock_double_click.lua). Enable only one at a time.
 
 ## Trying the app
 
@@ -36,7 +36,8 @@ Two alternatives are available: a standalone macOS app and a
   **Open Login Items Settings…**. Clicking Autostart again cancels registration.
 - The gray **A11y: granted / not granted** row shows Accessibility permission.
   Below it, **Dockmal &lt;version&gt; • GitHub ↗** displays the app name, bundle
-  version, and separator as an inactive gray caption. Only **GitHub ↗** opens
+  version, and separator as an inactive gray caption. The link is gray too;
+  only **GitHub ↗** opens
   the project repository. Its tooltip is **Open on GitHub**. States are refreshed
   before the menu opens.
 - Enable Autostart from a permanent location for the signed app. Do not move or
@@ -80,6 +81,30 @@ Two alternatives are available: a standalone macOS app and a
 - The filter restarts after sleep or a change of active user session.
 - Dock preferences are not changed. Autostart is registered only by clicking
   Autostart; no separate helper, LaunchAgent, or hidden daemon is created.
+
+## Hammerspoon alternative
+
+[dock_double_click.lua](dock_double_click.lua) is the complete standalone script
+(version 0.2.1, targeting Hammerspoon 1.1.x / Lua 5.4). It provides the same
+single-click/double-click filtering without the native app's dimming effect.
+
+1. Quit Dockmal. Never enable both filters at once.
+2. Back up any existing script, then copy `dock_double_click.lua` to `~/.hammerspoon/`.
+3. Add this line to `~/.hammerspoon/init.lua`:
+
+   ```lua
+   dofile(hs.configdir .. "/dock_double_click.lua")
+   ```
+
+4. Choose **Reload Config** in Hammerspoon and grant Accessibility access if needed.
+   After granting permission, use **Retry** in the **D²** menu if necessary.
+
+The **D²** menu contains **Enabled**, **Only for apps not running**, and **Unload script**.
+Both settings default to enabled and persist independently of the native app.
+Running apps activate with one click; turn off **Only for apps not running** to
+require a double-click for all apps. Right-clicks and modified clicks pass through.
+**Unload script** removes only this script and its menu. Reload Config restores it;
+uncheck **Enabled** to keep filtering off. No hotkey is assigned automatically.
 
 ## Building and signing
 
@@ -130,7 +155,7 @@ Neither proves live AX hit testing, Dock interaction, dragging, auto-hide, or Sp
 These scenarios require manual verification.
 
 Swift tests cover clicks, window order, geometry, event routing, and highlight
-cancellation. The Lua 0.2.1 mock harness passed 339 assertions in 29 scenarios.
+cancellation.
 Real clicks and menu state were not checked automatically.
 
 Packaging checks use the real C publication helper with a mocked app compiler and

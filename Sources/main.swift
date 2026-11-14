@@ -192,16 +192,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func addProductInformation(to menu: NSMenu) {
         let title = "Dockmal \(appVersion) •"
+        let font = menu.font ?? NSFont.menuFont(ofSize: 0)
         let label = NSTextField(labelWithString: title)
-        label.font = menu.font
+        label.font = font
         label.textColor = .disabledControlTextColor
         label.isEnabled = false
         label.sizeToFit()
 
         let link = NSButton(title: "GitHub ↗", target: self, action: #selector(openGitHub))
         link.isBordered = false
-        link.font = menu.font
-        link.contentTintColor = .linkColor
+        link.font = font
+        // Tint alone can be overridden by menu/button appearance. Set the text
+        // attributes explicitly while keeping the button enabled and clickable.
+        let linkTitle = NSAttributedString(string: "GitHub ↗", attributes: [
+            .font: font,
+            .foregroundColor: NSColor.disabledControlTextColor
+        ])
+        link.attributedTitle = linkTitle
+        link.attributedAlternateTitle = linkTitle
         link.toolTip = "Open on GitHub"
         link.setAccessibilityLabel("GitHub")
         link.setAccessibilityHelp("Open on GitHub")
@@ -209,16 +217,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         // A normal menu item makes the entire row actionable. Keep the caption
         // inert and give only the link its own native button and hit target.
-        let inset: CGFloat = 20
-        let spacing: CGFloat = 4
-        let height = max(label.frame.height, link.frame.height) + 6
+        let inset: CGFloat = 23
+        let height = max(label.frame.height, link.frame.height) + 8
         let row = NSView(frame: NSRect(x: 0, y: 0,
-            width: inset * 2 + label.frame.width + spacing + link.frame.width, height: height))
+            width: inset * 2 + label.frame.width + link.frame.width, height: height))
         row.autoresizingMask = [.width]
-        label.setFrameOrigin(NSPoint(x: inset, y: (height - label.frame.height) / 2))
-        link.setFrameOrigin(NSPoint(x: label.frame.maxX + spacing, y: (height - link.frame.height) / 2))
+        label.translatesAutoresizingMaskIntoConstraints = false
+        link.translatesAutoresizingMaskIntoConstraints = false
         row.addSubview(label)
         row.addSubview(link)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: row.leadingAnchor, constant: inset),
+            label.centerYAnchor.constraint(equalTo: row.centerYAnchor),
+            link.leadingAnchor.constraint(equalTo: label.trailingAnchor),
+            link.firstBaselineAnchor.constraint(equalTo: label.firstBaselineAnchor)
+        ])
 
         let item = NSMenuItem(title: "\(title) GitHub ↗", action: nil, keyEquivalent: "")
         item.view = row
