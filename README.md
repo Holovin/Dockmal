@@ -1,95 +1,52 @@
 # Dockmal
 
-A small utility for the system Dock on macOS 13+ / Apple Silicon.
-Built with Swift, AppKit, CoreGraphics, and Accessibility, with no external dependencies.
-Bundle ID: `com.holovin-local.dockmal`.
+Dockmal helps prevent accidental app launches from your Mac’s Dock. Apps that
+aren’t running take a double-click to open.
 
-Two alternatives are available: a standalone macOS app and a
-[Hammerspoon Lua script](dock_double_click.lua). Enable only one at a time.
+A small menu bar app for **macOS 13+ on Apple Silicon**.
 
-## Trying the app
+## Get started
 
-1. **Disable the Dock Lua filter in Hammerspoon or quit Hammerspoon.**
-   Running both filters would make them intercept each other's clicks.
-2. Open `build/Dockmal.app`. A `2.brakesignal` icon appears in the menu bar
-   (or a warning icon if permission has not been granted).
-3. Grant the app access in **System Settings → Privacy & Security → Accessibility**.
-   The app checks permission automatically; restart it if necessary.
-4. By default, an app that is not running requires a double-click. A running app
-   (with an indicator dot in the Dock) opens with one click.
-5. Check right-clicks, icon dragging, Dock auto-hide, and a second monitor.
-6. Uncheck **Enabled** to disable filtering, or choose **Quit** to exit.
+With Xcode’s command-line tools available, run these commands from the project folder:
 
-## Native app menu
+```sh
+bash build.sh
+open build/Dockmal.app
+```
 
-- **Enabled** turns the filter on. When off, event interception stops, the next
-  item is disabled, and the Dock behaves normally.
-- **Only for apps not running** requires a double-click only for apps that are
-  not running. Running apps receive ordinary clicks and other gestures.
-  The state comes from `AXIsApplicationRunning`, not the indicator dot's image.
-- If only **Enabled** is checked, all apps require a double-click.
-- Both settings default to enabled and persist between launches.
-- After the separator, **Autostart** registers this app as a macOS Login Item
-  using `SMAppService.mainApp`. It is independent of Enabled, is not turned on
-  automatically, and reflects the system state without a separate saved flag.
-  If system approval is required, the menu shows a mixed state and
-  **Open Login Items Settings…**. Clicking Autostart again cancels registration.
-- The gray **A11y: granted / not granted** row shows Accessibility permission.
-  Below it, **Dockmal &lt;version&gt; • GitHub ↗** displays the app name, bundle
-  version, and separator as an inactive gray caption. The link is gray too;
-  only **GitHub ↗** opens
-  the project repository. Its tooltip is **Open on GitHub**. States are refreshed
-  before the menu opens.
-- Enable Autostart from a permanent location for the signed app. Do not move or
-  delete the bundle after registration without checking Login Items in System Settings.
+Grant Dockmal access in **System Settings → Privacy & Security → Accessibility**.
+The app checks permission automatically; restart it if needed. Then try an app
+that isn’t running: the first click briefly dims its icon, and the second opens it.
+Dockmal uses your system’s double-click interval.
 
-## Click handling
+## Make it yours
 
-- Before AX hit testing, the app checks fresh Dock window bounds from WindowServer.
-  Clicks outside those bounds do not query Accessibility in the app under the
-  pointer. Unknown metadata falls back to the ordinary AX lookup. This spatial
-  prefilter does not replace the topmost-element check or cache Dock geometry.
-- The first ordinary left-click on a filtered icon is swallowed completely.
-- In the native app, the first blocked click slightly dims the icon, then the
-  dimming fades over 0.56 seconds. The effect follows the app image's alpha mask;
-  there is no ring, scaling, or spring animation. The next press, drag start,
-  gesture cancellation, or disabling the filter dismisses it. With Reduce Motion,
-  the dimming stays static and is then removed. Positioning uses Accessibility
-  geometry, accounting for Dock tile padding and the running-indicator gutter.
-  Fractional coordinates are preserved when macOS rounds the window position.
-  Missing or unsupported geometry or images skip the effect without disabling
-  click filtering.
-- A second click on the same icon within the system double-click interval reaches
-  the Dock as one ordinary click. The app's running state is checked on every press.
-- In the restricted mode, an unknown running state passes the click through.
-- Movement between clicks is limited to six logical points.
-- Right-clicks, Cmd/Option/Ctrl/Shift/Fn-modified clicks, folders, Trash, and
-  minimized windows pass through normally. This filters ordinary left-clicks;
-  it does not block other ways of launching apps.
-- Moving more than six points hands the held icon back to the Dock for dragging.
-  This behavior requires verification with the real Dock.
-- Long left-button holds on filtered icons are swallowed. Use a right-click for
-  the context menu. A long hold does not arm the next double-click.
-- Failed target lookups pass the event through. Repeated timeouts stop
-  interception and show a warning icon.
-- When the filter stops, an already swallowed press remains captured until
-  release; new gestures are not intercepted. Re-enabling waits for the old tap
-  to finish. A Dock restart or recovery from a tap timeout cancels double-click
-  recognition while continuing to swallow the remaining drag/up events without
-  replaying a stale down. If the system forcibly disables the tap, permission is
-  lost, or the process exits, delivery of the remaining mouse-up cannot be guaranteed.
-- The filter restarts after sleep or a change of active user session.
-- Dock preferences are not changed. Autostart is registered only by clicking
-  Autostart; no separate helper, LaunchAgent, or hidden daemon is created.
+Open Dockmal’s menu in the menu bar:
 
-## Hammerspoon alternative
+- **Enabled** — turn filtering on or off.
+- **Only for apps not running** — turn this off to require a double-click for every app.
+- **Autostart** — start Dockmal when you log in. Off by default; macOS may ask for approval.
 
-[dock_double_click.lua](dock_double_click.lua) is the complete standalone script
-(version 0.2.1, targeting Hammerspoon 1.1.x / Lua 5.4). It provides the same
-single-click/double-click filtering without the native app's dimming effect.
+The first two settings are on by default and remembered between launches.
+The menu also shows Accessibility status. Choose **Quit** to exit.
 
-1. Quit Dockmal. Never enable both filters at once.
-2. Back up any existing script, then copy `dock_double_click.lua` to `~/.hammerspoon/`.
+Keep the app in a permanent location before enabling Autostart.
+
+## Good to know
+
+- Right-clicks, clicks with modifier keys, folders, Trash, and minimized windows work normally.
+- Use a right-click for context menus: holding the left button on a filtered icon won’t open one.
+- Dockmal leaves your Dock preferences alone. Turning it off restores ordinary clicks.
+- Dragging, Dock magnification, auto-hide, side Docks, and multiple displays still need
+  manual verification. The dimming effect may not align at every Dock size or position.
+
+## Using Hammerspoon?
+
+[dock_double_click.lua](dock_double_click.lua) is a standalone alternative with the
+same click filtering, without the dimming effect. **Use one filter at a time.**
+
+1. Quit Dockmal.
+2. Copy the script to `~/.hammerspoon/`, backing up any existing copy.
 3. Add this line to `~/.hammerspoon/init.lua`:
 
    ```lua
@@ -97,90 +54,54 @@ single-click/double-click filtering without the native app's dimming effect.
    ```
 
 4. Choose **Reload Config** in Hammerspoon and grant Accessibility access if needed.
-   After granting permission, use **Retry** in the **D²** menu if necessary.
+   Use **Retry** in the **D²** menu after granting permission.
 
-The **D²** menu contains **Enabled**, **Only for apps not running**, and **Unload script**.
-Both settings default to enabled and persist independently of the native app.
-Running apps activate with one click; turn off **Only for apps not running** to
-require a double-click for all apps. Right-clicks and modified clicks pass through.
-**Unload script** removes only this script and its menu. Reload Config restores it;
-uncheck **Enabled** to keep filtering off. No hotkey is assigned automatically.
+The **D²** menu has the same two filter settings, saved independently of Dockmal.
+**Unload script** removes the script and its menu until the next reload.
 
-## Building and signing
+## Development
 
-For every app update, increment the patch version in `CFBundleShortVersionString`
-and the build number in `CFBundleVersion` in `Info.plist`. The menu reads its
-version from the bundle. Rechecking the same change does not create a new version.
-
-The installed toolchain is Xcode / Swift 6.2; sources compile in Swift 5 mode.
+Written in Swift and AppKit. `bash build.sh` runs offline Swift tests, builds the
+app, and verifies its signature. Packaging tests run separately:
 
 ```sh
-bash build.sh
-SIGNING_IDENTITY='identity from security find-identity -v -p codesigning' bash build.sh
+bash Tests/build-script-tests.sh
 ```
 
-Choose another output path to avoid replacing the bundle currently in use:
+These checks don’t exercise the live Dock or verify Autostart at login.
+See [CHANGELOG.md](CHANGELOG.md) for changes.
+
+<details>
+<summary>Signing, build output, and diagnostics</summary>
+
+Builds use an ad-hoc signature by default. To use your own signing identity:
+
+```sh
+SIGNING_IDENTITY='your signing identity' bash build.sh
+```
+
+Apple Development signing is suitable for local testing; it does not produce a
+notarized release.
+
+To build somewhere else, for example while another copy is running:
 
 ```sh
 APP_OUTPUT_PATH="$PWD/.build/staging/Dockmal.app" bash build.sh
 ```
 
-The build runs the logic and event-adapter tests without a live event tap, then
-creates and verifies a new ARM64 `.app` in a temporary directory beside the output
-bundle. The previous build is replaced only after successful checks. Without
-`SIGNING_IDENTITY`, the build uses an ad-hoc signature without a certificate.
-Apple Development signing is suitable for local test builds; it is not a
-Developer ID distribution build or a notarized release.
+A successful build atomically replaces the previous app. The `.build-lock` file
+beside it is normal: leave it in place. Its lock is released when the build exits,
+even if the process is killed.
 
-Publication uses a system lock and an atomic directory swap on the same filesystem.
-The `Dockmal.app.build-lock` file remains on disk; this is normal and it should not
-be deleted. The kernel releases the lock when the process exits, including after
-SIGKILL. A filesystem without atomic-swap support rejects publication and preserves
-the previous bundle. A hard interruption may leave a `.dockmal.*` staging directory,
-but replacement does not leave the output bundle missing. Legacy lock directories
-are not removed automatically: the build message explains how to check the previous
-app and recover manually.
-
-Safe checks of a built executable (no interception or permission prompts):
+Check a built app without intercepting input or requesting permissions:
 
 ```sh
 'build/Dockmal.app/Contents/MacOS/Dockmal' --check
 codesign --verify --deep --strict --verbose=2 'build/Dockmal.app'
 ```
 
-## Limits of verification
+</details>
 
-Tests check the state machine, and a build checks compatibility with the macOS SDK.
-Neither proves live AX hit testing, Dock interaction, dragging, auto-hide, or Spaces.
-These scenarios require manual verification.
-
-Swift tests cover clicks, window order, geometry, event routing, and highlight
-cancellation.
-Real clicks and menu state were not checked automatically.
-
-Packaging checks use the real C publication helper with a mocked app compiler and
-signing tool. They also cover SIGKILL before and after atomic replacement:
-
-```sh
-bash Tests/build-script-tests.sh
-```
-
-Autostart requires separate manual checks of registration, system approval,
-disabling, and the next macOS login. Neither the build nor `--check` registers it.
-
-The dimming effect uses a separate panel that does not take focus or handle mouse
-input. If it becomes the topmost AX window, an additional window-order check allows
-a Dock lookup only when a Dock window is directly underneath it. Foreign windows
-and the app's own menus are not bypassed. Pure tests check this policy and geometry
-validation; real second clicks, dragging, Dock magnification, auto-hide, and multiple
-displays with visible feedback still require manual checks. Image padding was
-calibrated against a supplied bottom-Dock screenshot: a 68×79-point tile contains
-a 64×64-point image with two points of padding along the Dock and five at the inward
-edge. This is observed geometry, not an Apple API guarantee. Applying the model to
-side Docks or other sizes requires visual verification. The Lua alternative does
-not draw the dimming effect.
-
-The implementation was written independently using public APIs. Hammerspoon's
-sources were consulted as reference material:
-[eventtap](https://github.com/Hammerspoon/hammerspoon/blob/23e387e2805a9890066366e0ac96c71b27f0cfd5/extensions/eventtap/libeventtap.m),
-[axuielement](https://github.com/Hammerspoon/hammerspoon/blob/23e387e2805a9890066366e0ac96c71b27f0cfd5/extensions/axuielement/libaxuielement.m).
+Hammerspoon’s [eventtap](https://github.com/Hammerspoon/hammerspoon/blob/23e387e2805a9890066366e0ac96c71b27f0cfd5/extensions/eventtap/libeventtap.m)
+and [axuielement](https://github.com/Hammerspoon/hammerspoon/blob/23e387e2805a9890066366e0ac96c71b27f0cfd5/extensions/axuielement/libaxuielement.m)
+sources were consulted as references for the independent native implementation.
