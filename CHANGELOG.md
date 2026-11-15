@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.13
+
+- Build a universal app (Apple Silicon and Intel).
+- Publish an ad-hoc signed DMG to GitHub Releases when the version in `Info.plist` changes on `master`.
+
 ## 0.0.12
 
 - Align the GitHub link with the product caption's text baseline and use matching gray text while keeping the link clickable.

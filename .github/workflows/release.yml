@@ -1,0 +1,104 @@
+name: Release
+
+# Builds an ad-hoc signed, universal Dockmal DMG from `master` and publishes it as a GitHub Release.
+# No secrets, no Developer ID, no notarization.
+#
+# A release is cut by changing the version in Info.plist on `master`, never by pushing a tag by hand:
+#   - a push that touches Info.plist starts this workflow, which reads the file at the branch tip;
+#   - if the tag v<version> already exists the run stops without building, so a push that leaves the
+#     version as it was releases nothing;
+#   - otherwise it builds the DMG, tags the commit it built, and publishes the release.
+#
+# "Run workflow" does the same by hand. When the tag already exists it rebuilds that tag's commit and
+# replaces the DMG on the existing release.
+on:
+  push:
+    branches: [master]
+    paths: [Info.plist]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# One release at a time, so two quick pushes can't both try to create the same tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Always the tip of the release branch, whatever started the run.
+          ref: master
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Resolve version
+        id: meta
+        run: |
+          VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Info.plist)"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+            || { echo "Info.plist version is not X.Y.Z: '$VERSION'" >&2; exit 1; }
+          TAG="v$VERSION"
+          BUILD=true
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+              echo "Tag $TAG exists: rebuilding its commit and replacing the DMG."
+              git checkout --detach "refs/tags/$TAG"
+            else
+              echo "::notice::Tag $TAG already exists, nothing to release."
+              BUILD=false
+            fi
+          fi
+          {
+            echo "tag=$TAG"
+            echo "version=$VERSION"
+            echo "build=$BUILD"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Test and build the app
+        if: steps.meta.outputs.build == 'true'
+        run: bash build.sh
+
+      - name: Run packaging tests
+        if: steps.meta.outputs.build == 'true'
+        run: bash Tests/build-script-tests.sh
+
+      - name: Build the DMG
+        if: steps.meta.outputs.build == 'true'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          STAGE="$(mktemp -d)"
+          cp -R build/Dockmal.app "$STAGE/Dockmal.app"
+          ln -s /Applications "$STAGE/Applications"
+          codesign --verify --deep --strict "$STAGE/Dockmal.app"
+          hdiutil create -volname Dockmal -srcfolder "$STAGE" -ov -format UDZO "Dockmal-$VERSION.dmg"
+
+      - name: Publish DMG to GitHub Releases
+        if: steps.meta.outputs.build == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          # Creates the tag on the commit that was built, if it does not exist yet.
+          target_commitish: ${{ steps.meta.outputs.sha }}
+          name: Dockmal ${{ steps.meta.outputs.version }}
+          files: Dockmal-${{ steps.meta.outputs.version }}.dmg
+          generate_release_notes: true
+          body: |
+            Universal build (Apple Silicon and Intel), macOS 13 or later.
+
+            This build is not notarized by Apple, so macOS blocks it on first launch. After dragging
+            Dockmal to Applications, run this once in Terminal:
+
+            ```bash
+            xattr -dr com.apple.quarantine /Applications/Dockmal.app
+            ```
+
+            macOS asks for Accessibility access again after every update, because the build is signed
+            without a developer certificate.

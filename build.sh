@@ -57,10 +57,17 @@ xcrun swiftc -swift-version 5 -warnings-as-errors -module-cache-path "$PWD/.buil
     "${native_sources[@]}" Tests/EventFilterTests.swift -o "$test_dir/event-filter-tests"
 "$test_dir/event-filter-tests"
 
-xcrun swiftc -swift-version 5 -O -warnings-as-errors \
-    -target arm64-apple-macosx13.0 -module-cache-path "$PWD/.build/ModuleCache" \
-    -framework AppKit -framework ApplicationServices -framework ServiceManagement -framework QuartzCore \
-    "${native_sources[@]}" Sources/main.swift -o "$staged_app/Contents/MacOS/Dockmal"
+# Universal app: one slice per architecture, merged and verified by lipo.
+slices=()
+for arch in arm64 x86_64; do
+    xcrun swiftc -swift-version 5 -O -warnings-as-errors \
+        -target "$arch-apple-macosx13.0" -module-cache-path "$PWD/.build/ModuleCache" \
+        -framework AppKit -framework ApplicationServices -framework ServiceManagement -framework QuartzCore \
+        "${native_sources[@]}" Sources/main.swift -o "$test_dir/Dockmal-$arch"
+    slices+=("$test_dir/Dockmal-$arch")
+done
+xcrun lipo -create "${slices[@]}" -output "$staged_app/Contents/MacOS/Dockmal"
+xcrun lipo "$staged_app/Contents/MacOS/Dockmal" -verify_arch arm64 x86_64
 cp Info.plist "$staged_app/Contents/Info.plist"
 plutil -lint "$staged_app/Contents/Info.plist"
 

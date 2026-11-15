@@ -25,9 +25,10 @@ xcrun clang -Wall -Wextra -Werror -DDOCKMAL_PUBLICATION_TESTING \
 cat > "$fake_bin/xcrun" <<'FAKE'
 #!/bin/bash
 set -euo pipefail
+if [[ "$1" == lipo && "$*" == *-verify_arch* ]]; then exit 0; fi
 output=
 while [[ "$#" -gt 0 ]]; do
-    if [[ "$1" == -o ]]; then output="$2"; break; fi
+    if [[ "$1" == -o || "$1" == -output ]]; then output="$2"; break; fi
     shift
 done
 [[ -n "$output" ]] || exit 90
